@@ -1,0 +1,374 @@
+/* global createCanvas, colorMode, HSB, random, width, height, rect, fill, windowWidth, 
+windowHeight, keyCode, LEFT_ARROW, RIGHT_ARROW, background, rectMode, CENTER, ellipse, 
+keyIsDown, collideRectCircle, UP_ARROW, textSize, text, collideCircleCircle, stroke, 
+noStroke, loadImage, image, noFill, noStroke, keyIsPressed, sort, textAlign, textFont*/
+
+let backgroundColor, x, y, velocity, platforms, platformWidth, player1, powerups, numPowerups, randomInt, enemies, ladders, snakeImage, snakeImageHeight, snakeImageWidth, 
+    yellowHeart, yellowHeartHeight, yellowHeartWidth;
+let score = 0, lives = 3, masterVelocity = .1 * (score+1);
+let scores = []; //array of scores
+
+function setup(){
+  createCanvas(windowWidth, windowHeight);
+  colorMode(HSB, 360, 100, 100);
+  backgroundColor = 5;
+    
+  //import snake image
+  snakeImage = loadImage("https://freesvg.org/img/portablejim-Snakes-and-ladders.png");
+  snakeImageHeight = 60;
+  snakeImageWidth = 60;
+  
+  //import heart image
+  yellowHeart = loadImage("https://cdn.glitch.com/8ac97dd2-5f49-428f-b299-a6cc61b6988b%2F65eb8bc1-e902-4d9f-95e7-877dcd6d93b3.image.png?v=1596134014673");
+  yellowHeartHeight = 15;
+  yellowHeartWidth = 15;
+  
+  //center platforms
+  rectMode(CENTER);
+  
+  //setup game
+  arrangePlatforms();
+  arrangePlayer();
+  arrangePowerups();
+  arrangeEnemy();
+  arrangeLadders();  
+}
+
+function draw() {
+  if(lives<0) {
+    showLeaderboard(); //after you've lost all your lives i.e. lost the game, show leaderboards
+  }
+  else {
+  background(backgroundColor); //if you still have lives, continue playing the game
+  
+  displayScore();
+  displayLives();
+    
+  for(let i=0; i<platforms.length; i++) { //show the platforms
+    platforms[i].displayPlatform();
+    platforms[i].movePlatform();
+  }
+  
+  player1.showPlayer(); //show the player
+  player1.gravityMovement();
+  player1.checkCollision();
+  player1.y+=platforms[1].velocity;
+  
+  for (let n = 0; n < powerups.length; n++){ //show the powerups
+    //console.log(powerups);
+    powerups[n].showPowerup();
+    image(yellowHeart, powerups[n].x - powerups[n].radius, powerups[n].y - powerups[n].radius, yellowHeartWidth, yellowHeartHeight);
+    powerups[n].y += platforms[1].velocity;
+  }
+  
+  for (let e = 0; e < enemies.length; e++){ //show the enemies
+    //console.log(powerups);
+    enemies[e].showEnemy();
+    enemies[e].y += platforms[1].velocity;
+  }
+  
+  for (let l = 0; l < ladders.length ; l++){ //show the ladders
+    //console.log(ladders);
+    ladders[l].showLadders();
+    image(snakeImage, ladders[l].x-snakeImageWidth/2, ladders[l].y-snakeImageHeight/2, snakeImageWidth, snakeImageHeight);
+    ladders[l].y += platforms[1].velocity;
+  }
+  
+  moveEnemy(); 
+  collideEnemy(); 
+  collidePowerup();
+  collideLadder();
+  checkFall();
+  checkWin();
+  }
+}
+
+function showLeaderboard() {
+  scores.push(score); //add the current score to the array of all scores
+  textAlign(CENTER);
+  fill('black');
+  text(`Your score: ${score}`, windowWidth/2, windowHeight/4 + 40);
+  sort(scores); //sort array of scores from smallest to largest
+    if(score>scores[scores.length-2]) { //if your score is greater than the previous high score it's a new record-- note: using -2 because if your score is the new highest, it would have been sorted to the end of the array, and so has to be compared to the second to last score
+      text("New record!", windowWidth/2, windowHeight/4 + 20);
+    }
+  text("LEADERBOARD:", windowWidth/2, windowHeight/4)
+  text(`High score: ${scores[scores.length-1]}`, windowWidth/2, windowHeight/4 + 70)
+  text("Press any key to play again", windowWidth/2, windowHeight/4 + 110);
+  if(keyIsPressed === true) { //reset score and lives, and resetting the lives will start the game again
+    score = 0;
+    lives = 3;
+  }
+}
+
+function arrangePlatforms() {
+  platforms = []; //array of platforms
+  
+  platformWidth = width/2;
+  for(let i=120; i<height-70; i+=120) {
+    let plat = new platform(width/2, i, platformWidth, masterVelocity); //platforms centered on the screen moving downwards
+    platforms.push(plat);
+    platformWidth+= 120; //each platform gets wider
+  }
+}
+
+function arrangePlayer() {
+  player1 = new player(); 
+  player1.x = width/2; //player spawns in the middle of the bottommost platform
+  player1.y = platforms[platforms.length - 1].y - player1.radius - platforms[platforms.length-1].height/2;
+}
+
+//position powerups
+function arrangePowerups(){
+  powerups = [];
+  for (let n = 0; n < platforms.length; n++){
+    powerups.push(new powerup());
+  }
+    
+  for (let i=0; i<platforms.length; i++) {
+    powerups[i].x = random(width/2-platforms[i].width/2, width/2+platforms[i].width/2);
+    powerups[i].y = platforms[i].y - platforms[i].height/2 - powerups[i].radius;
+  } 
+}
+
+//position enemies
+function arrangeEnemy(){
+  enemies = [];
+  for (let n = 0; n < 2*platforms.length; n++) {
+    enemies.push(new enemy(0));
+  }
+  
+  for (let i=0; i< platforms.length; i++) {
+      for (let j=0; j < 2; j++){
+        if(i%2==0) {
+      enemies[i*2+j].x = width/2-platforms[i].width/2; //enemy[0] to enemy[3] on platform[0]
+        }
+        else {
+      enemies[i*2+j].x = width/2+platforms[i].width/2; 
+        }
+    enemies[i*2+j].y = platforms[i].y - platforms[i].height/2 - enemies[i*2+j].radius;
+    }
+  } 
+}
+
+//position ladders
+function arrangeLadders() {
+  ladders = [];
+  for (let n = 0; n < platforms.length - 1; n++){
+    ladders.push(new ladder());
+  }
+    
+  for (let i=0; i<ladders.length; i++) {
+    ladders[i].x = random(width/2-platforms[i].width/2, width/2+platforms[i].width/2);
+    ladders[i].y = platforms[i].y + platforms[i].height/2 + ladders[i].h/2;
+  } 
+}
+
+//check the condition for winning
+function checkWin() {
+  if (player1.y < platforms[0].y - platforms[0].height/2 - player1.radius) { //once on the top platform, jump to win round
+    setup();
+    score++;
+  }
+}
+
+//show score
+function displayScore() {
+  textFont('acme');
+  textSize(24);
+  fill(100);
+  textAlign(CENTER);
+  text(`Score: ${score}`, windowWidth/2-80, 40);
+}
+
+//show lives
+function displayLives() {
+  textFont('acme');
+  textSize(24);
+  fill(100);
+  textAlign(CENTER);
+  text(`Lives: ${lives}`, windowWidth/2+80, 40);
+}
+
+function moveEnemy() {
+  for (let i = 0; i < enemies.length; i++) {
+    if (enemies[i].x <= platforms[Math.floor(i/2)].x - platforms[Math.floor(i/2)].width/2 + 5){
+      enemies[i].velocity = random(8/(i+1),10/(i+1));
+    }
+    if (enemies[i].x >= platforms[Math.floor(i/2)].x + platforms[Math.floor(i/2)].width/2 - 5) {
+      enemies[i].velocity = random(-10/(i+1), -8/(i+1));
+    }
+    enemies[i].x += enemies[i].velocity;
+  }
+}
+
+//increase lives by +1 when player1 collides w/ powerup
+function collidePowerup() {
+  for(let i=0; i<powerups.length; i++) {
+    if(collideCircleCircle(powerups[i].x, powerups[i].y, powerups[i].radius*1.5, player1.x, player1.y, player1.radius*2)) {
+      powerups.splice(i);
+      lives++;
+    }
+  }
+}
+
+//decrease lives by 1 when player1 collide w/ enemy ball
+function collideEnemy() {
+  for(let i=0; i<enemies.length; i++) {
+    if(collideCircleCircle(enemies[i].x, enemies[i].y, enemies[i].radius*2, player1.x, player1.y, player1.radius*2)) {
+      /*player1.x = width/2;
+      player1.y = platforms[platforms.length - 1].y - player1.radius - platforms[platforms.length-1].height/2;
+      enemies[i].x = platforms[Math.floor(i/4)].x - platforms[Math.floor(i/4)].width/2;*/
+      lives--;
+      setup();
+    }
+  }
+}
+
+//moves player1 to next platform when contact w/ ladder is made
+function collideLadder() {
+   for(let i=0; i<ladders.length; i++) {
+    if(collideRectCircle(ladders[i].x - ladders[i].w/2, ladders[i].y - ladders[i].h/2, ladders[i].w, ladders[i].h, player1.x, player1.y, player1.radius*2)) {
+      player1.y = platforms[i].y + platforms[i].height/2 + player1.radius;
+    }
+  }
+}
+
+//lives decrease by 1 if player1 falls off of platform
+function checkFall() {
+  if (player1.y > height-platforms[1].height) {
+  lives--;
+  setup();
+  }
+}
+
+//allows for movement
+function keyPressed() {
+  if(keyIsDown(LEFT_ARROW)) {
+    player1.x -= 15;
+  }
+  if(keyIsDown(RIGHT_ARROW)) {
+    player1.x += 15;
+  }
+  if(keyIsDown(UP_ARROW)) {
+    player1.jumpMovement();
+  }
+}
+
+//constructor for player
+class player {
+  constructor(x, y) {
+    this.x = x; //width/2
+    this.y = y;
+    this.radius = 10;  
+    
+    this.velocity = 0;
+    this.gravity = .025; //1
+    
+    this.jump = -40;
+    
+    this.onPlatform = true;
+  }
+
+  //sets gravity for player1's jumping movement
+  gravityMovement() {
+    this.onPlatform = this.checkCollision();
+   if (!this.onPlatform){ 
+     this.velocity += this.gravity;
+      this.y += this.velocity;
+    } 
+    else if (this.onPlatform){
+      this.gravity = .025;
+      this.velocity = 0;
+    }
+  }
+  
+  jumpMovement() {
+    if(this.checkCollision()) { //can't double jump
+    this.y += this.jump;
+    }
+  }
+  
+  checkCollision() {
+    for (let i=0; i<platforms.length; i++) {
+      if(collideRectCircle(platforms[i].x-platforms[i].width/2, platforms[i].y-platforms[i].height/2, platforms[i].width, platforms[i].height, this.x, this.y, this.radius*2)) {
+        this.y = platforms[i].y - this.radius - platforms[i].height/2;
+        return true;
+    }
+  }
+    return false;
+}
+  //displays player1
+  showPlayer() {
+    fill(150, 100, 50);
+    ellipse(this.x, this.y, this.radius*2);
+  }
+}
+
+//constructor for enemies
+class enemy {
+  constructor(v) {
+    this.x = 0;
+    this.y = 0;
+    this.radius  = 10;
+    this.velocity = v;
+    //change this stuff to have spawn on platforms
+  }
+  
+   showEnemy () {
+    fill(0, 80, 100);
+    ellipse(this.x, this.y, this.radius*2);
+  }
+}
+
+//constructor for powerups
+class powerup {
+  constructor() {
+    this.x = 0;
+    this.y = 0;
+    this.radius = 8;
+  }
+  
+ //shows powerups on canvas
+  showPowerup() {
+    fill(60, 80, 100);
+    ellipse(this.x, this.y, this.radius*1.5);
+  }
+}
+
+//constructor for platform
+class platform {
+  constructor(x, y, w, v) {
+   this.x = x;
+   this.y = y;
+   this.height = 20;
+   this.width = w; //20 pixels on either side
+   this.velocity = v;
+  }
+  
+  movePlatform() {
+    this.y += this.velocity;
+  }
+
+//shows platforms on canvas
+  displayPlatform() {
+   fill(290, 100, 50);
+   rect(this.x, this.y, this.width, this.height);
+  }
+}
+
+class ladder {
+  constructor(){
+    this.x = 0;
+    this.y = 0;
+    this.w = 20;
+    this.h = 60;
+  }
+  
+  showLadders(){
+    fill(5);
+    stroke(5);
+    rect(this.x, this.y, 20, 60);
+    noStroke();
+  }
+}
