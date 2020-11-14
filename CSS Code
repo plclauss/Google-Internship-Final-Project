@@ -1,0 +1,28 @@
+/* CSS files add styling rules to your content */
+
+body {
+  font-family: helvetica, arial, sans-serif;
+  margin: 2em;
+  background-image: url('https://cdn1.vectorstock.com/i/1000x1000/58/45/pink-and-purple-clouds-bg-with-papercut-effect-vector-24235845.jpg');
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+h1 {
+  font-size: 40px;
+  color: black;
+  text-align: center;
+  position: relative;
+  left: 40px;
+  font-family: 'Ranchers', cursive;
+}
+
+p {
+  font-size: 20px;
+  color: black;
+  text-align: center;
+  position: relative;
+  left: 40px;
+  font-family: 'Acme', sans-serif;
+}
